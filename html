@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天气预报</title>
+    <style>
+        body {
+            background-color: #CCE8CF;
+            font-family: Arial, sans-serif;
+        }
+        h3 {
+            font-size: 25px;
+        }
+        #weather {
+            margin-top: 20px;
+        }
+        .day-weather {
+            margin-bottom: 20px;
+        }
+        #download {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="weather">
+        <h3>7天天气预报</h3>
+    </div>
+
+    <div id="download">
+        <button onclick="generateICS()">下载ICS文件</button>
+    </div>
+
+    <script type="text/javascript">
+        let weatherData = []; // 全局变量存储天气数据
+
+        // 检查浏览器是否支持地理定位
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(success, error);
+        } else {
+            alert("该浏览器不支持获取地理位置");
+        }
+
+        // 获取位置成功时的回调
+        function success(position) {
+            var latitude = position.coords.latitude;
+            var longitude = position.coords.longitude;
+
+            // 获取天气数据
+            getWeather(latitude, longitude);
+        }
+
+        // 获取位置失败时的回调
+        function error(err) {
+            alert(err.code + "-----" + err.message);
+        }
+
+        // 获取天气的函数
+        function getWeather(latitude, longitude) {
+            const apiKey = '1941b88a08d2424691ef89edae8ece0f';
+            const url = `https://devapi.qweather.com/v7/grid-weather/7d?location=${longitude},${latitude}&key=${apiKey}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.daily) {
+                        weatherData = data.daily; // 将天气数据保存到全局变量
+                        displayWeather(data.daily);
+                    } else {
+                        alert("无法获取天气数据，请检查输入的经纬度是否正确。");
+                    }
+                })
+                .catch(error => console.error('Error fetching weather data:', error));
+        }
+
+        // 展示天气信息的函数
+        function displayWeather(daily) {
+            const weatherDiv = document.getElementById('weather');
+            weatherDiv.innerHTML = "<h3>7天天气预报</h3>";
+            
+            daily.forEach(day => {
+                const date = new Date(day.fxDate).toLocaleDateString();
+                const summary = `天气: ${day.textDay}, 温度: ${day.tempMin}°C - ${day.tempMax}°C`;
+                const description = `风: ${day.windDirDay} ${day.windScaleDay}级, 湿度: ${day.humidity}%`;
+
+                const dayWeather = document.createElement('div');
+                dayWeather.className = 'day-weather';
+                dayWeather.innerHTML = `<strong>${date}</strong><br>${summary}<br>${description}<br><br>`;
+
+                weatherDiv.appendChild(dayWeather);
+            });
+        }
+
+        // 生成ICS文件内容的函数
+        function generateICS() {
+            let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Your App//Weather Forecast//EN\n";
+
+            weatherData.forEach(day => {
+                const date = new Date(day.fxDate).toISOString().slice(0, 10).replace(/-/g, '');
+                const summary = `天气: ${day.textDay}, 温度: ${day.tempMin}°C - ${day.tempMax}°C`;
+                const description = `风: ${day.windDirDay} ${day.windScaleDay}级, 湿度: ${day.humidity}%`;
+
+                icsContent += "BEGIN:VEVENT\n";
+                icsContent += `UID:${Math.random().toString(36).substring(2)}@yourapp.com\n`;
+                icsContent += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z\n`;
+                icsContent += `DTSTART:${date}\n`;
+                icsContent += `DTEND:${date}\n`;
+                icsContent += `SUMMARY:${summary}\n`;
+                icsContent += `DESCRIPTION:${description}\n`;
+                icsContent += "END:VEVENT\n";
+            });
+
+            icsContent += "END:VCALENDAR";
+
+            // 创建Blob对象并生成下载链接
+            const blob = new Blob([icsContent], { type: 'text/calendar' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'weather_forecast.ics';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
